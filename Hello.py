@@ -54,17 +54,38 @@ st.title("Chromatogram Plotter")
 
 # File uploader
 uploaded_file = st.file_uploader("Choose a CSV file", type="csv")
+
 if uploaded_file is not None:
+    st.write(f'Selected file:', uploaded_file.name)
+    
     # Read CSV file
-    data = pd.read_csv(uploaded_file, encoding="utf-16", delimiter="\t", header=2)
+    uploaded_file.seek(0)
+    
+    try:
+        data = pd.read_csv(uploaded_file, encoding="utf-16", delimiter="\t", header=2)
+    except UnicodeError:
+
+        buffer = uploaded_file.getvalue().decode("utf-8")
+        text_stream = io.StringIO(buffer)
+
+        # Use Pandas to read from the text stream, skipping the first two lines
+        data = pd.read_csv(text_stream, header=2)
+        data = data.dropna(axis=1, how='all')
+    
     st.write("Columns in your file:", data.columns.tolist())
 
     # Filter numeric columns for slider limits
     numeric_cols = data.select_dtypes(include='number').columns
-
+    
     # Slider for number of traces
-    num_traces = st.slider("Number of Traces", 1, len(numeric_cols) // 2, 1)
-
+    n_traces = len(numeric_cols) // 2
+    if n_traces > 1:
+        num_traces = st.slider("Number of Traces", 1, len(numeric_cols) // 2, 1)
+        if_fractions = st.checkbox('# Plot fractions', True)
+    else:
+        num_traces = 1
+        if_fractions = False
+        
     # Initialize or retrieve the list of random colors
     if 'random_colors' not in st.session_state or len(st.session_state.random_colors) < num_traces:
         st.session_state.random_colors = generate_random_colors(num_traces)
@@ -96,6 +117,7 @@ if uploaded_file is not None:
     
     ymin = st.number_input("Y-axis Minimum", value=0)
     ymax = st.number_input("Y-axis Maximum", value=int(data[numeric_cols].max().max()))
+    
     figsize_width = st.slider("Figure Width", 5, 20, 10)
     figsize_height = st.slider("Figure Height", 3, 15, 5)
     figsize_dpi = st.selectbox("Figure DPI", [150,200,300,500])
@@ -104,7 +126,7 @@ if uploaded_file is not None:
     if st.button("Plot Chromatogram"):
         fig, ax = plt.subplots(figsize=(figsize_width, figsize_height), dpi=figsize_dpi)
         for x_column, y_column, color, plot_every, sample_name, mod_y, y_scale in trace_params:
-            plot_chromatogram(ax, data, x_column, y_column, plot_every, title, sample_name, mod_y, y_scale, (x_lim_min, x_lim_max), ymin, ymax, True, "ml.5", 0, color)
+            plot_chromatogram(ax, data, x_column, y_column, plot_every, title, sample_name, mod_y, y_scale, (x_lim_min, x_lim_max), ymin, ymax, if_fractions, "ml.5", 0, color)
         st.pyplot(fig)
 
         # Download plot
