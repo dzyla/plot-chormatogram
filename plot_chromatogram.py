@@ -116,3 +116,4 @@ if uploaded_file is not None:
         st.download_button("Download Plot", buf, f"{os.path.basename(filename)}.png", "image/png")
 
 # Run the Streamlit app with 'streamlit run [filename].py'
+st.write('Dawid Zyla 2024. Source code available on [GitHub](https://github.com/dzyla/plot-chormatogram/)')
