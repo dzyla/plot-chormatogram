@@ -254,3 +254,5 @@ if uploaded_file is not None:
         buf.seek(0)
         filename = os.path.basename(uploaded_file.name).replace(".csv", "")
         st.download_button("Download Plot", buf, f"{filename}.png", "image/png")
+
+st.write('Dawid Zyla 2024. Source code available on [GitHub](https://github.com/dzyla/plot-chormatogram/)')
