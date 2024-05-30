@@ -232,25 +232,47 @@ if uploaded_file is not None:
             y_scale,
             line_width,
         ) in trace_params:
-            plot_chromatogram(
-                ax,
-                data,
-                x_column,
-                y_column,
-                plot_every,
-                title,
-                sample_name,
-                mod_y,
-                y_scale,
-                (x_lim_min, x_lim_max),
-                ymin,
-                ymax,
-                if_fractions,
-                fraction_column_x,
-                0,
-                color,
-                line_width,
-            )
+            try:
+                plot_chromatogram(
+                    ax,
+                    data,
+                    x_column,
+                    y_column,
+                    plot_every,
+                    title,
+                    sample_name,
+                    mod_y,
+                    y_scale,
+                    (x_lim_min, x_lim_max),
+                    ymin,
+                    ymax,
+                    if_fractions,
+                    fraction_column_x,
+                    0,
+                    color,
+                    line_width,
+                )
+            except KeyError:
+                plot_chromatogram(
+                    ax,
+                    data,
+                    x_column,
+                    y_column,
+                    plot_every,
+                    title,
+                    sample_name,
+                    mod_y,
+                    y_scale,
+                    (x_lim_min, x_lim_max),
+                    ymin,
+                    ymax,
+                    False,
+                    fraction_column_x,
+                    0,
+                    color,
+                    line_width,
+                )
+                st.warning('Fraction column not found. Fractions will not be plotted.')
         st.pyplot(fig)
 
         # Download plot
