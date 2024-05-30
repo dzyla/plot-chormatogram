@@ -139,9 +139,9 @@ if uploaded_file is not None:
         if_fractions = False
 
     if 'ml' in data.columns:
-        val_min = data['ml'].min()
+        val_min = int(data['ml'].min())
     else:
-        -1000
+        val_min = -1000
     
     # Initialize or retrieve the list of random colors
     if (
