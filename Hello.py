@@ -138,6 +138,11 @@ if uploaded_file is not None:
         num_traces = 1
         if_fractions = False
 
+    if 'ml' in data.columns:
+        val_min = data['ml'].min()
+    else:
+        -1000
+    
     # Initialize or retrieve the list of random colors
     if (
         "random_colors" not in st.session_state
@@ -157,7 +162,7 @@ if uploaded_file is not None:
             first_numeric_col = numeric_cols[0]
             x_lim_min, x_lim_max = st.slider(
                 "X-axis Limits",
-                0,
+                val_min,
                 int(data[first_numeric_col].max()),
                 (0, int(data[first_numeric_col].max())),
             )
