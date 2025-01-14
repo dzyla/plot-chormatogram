@@ -92,10 +92,10 @@ if uploaded_file is not None:
     title = st.text_input("Title of Plot", os.path.basename(uploaded_file.name))
     if len(numeric_cols) > 0:
         first_numeric_col = numeric_cols[0]
-        x_lim_min, x_lim_max = st.slider("X-axis Limits", 0, int(data[first_numeric_col].max()), (0, int(data[first_numeric_col].max())))    
+        x_lim_min, x_lim_max = st.slider("X-axis Limits", 0.0, float(data[first_numeric_col].max()), (0.0, float(data[first_numeric_col].max())))    
     
-    ymin = st.number_input("Y-axis Minimum", value=0)
-    ymax = st.number_input("Y-axis Maximum", value=int(data[numeric_cols].max().max()))
+    ymin = st.number_input("Y-axis Minimum", value=0.0)
+    ymax = st.number_input("Y-axis Maximum", value=float(data[numeric_cols].max().max()))
     figsize_width = st.slider("Figure Width", 5, 20, 10)
     figsize_height = st.slider("Figure Height", 3, 15, 5)
     figsize_dpi = st.selectbox("Figure DPI", [150,200,300,500])
