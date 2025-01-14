@@ -49,8 +49,8 @@ def plot_chromatogram(
     # Fraction plotting
     if do_fractions:
         vline_scale = 0.1
-        y_scale = max(data[y_column]) - min(data[y_column])
-        vline_height = y_scale * vline_scale
+        y_scale_val = max(data[y_column]) - min(data[y_column])
+        vline_height = y_scale_val * vline_scale
 
         if ymax is not None:
             vline_height = ymax * vline_scale
@@ -112,7 +112,6 @@ if uploaded_file is not None:
 
     if uploaded_file.name.endswith(".asc"):
         data = pd.read_csv(uploaded_file, delimiter="\t", header=2)
-
     else:
         try:
             data = pd.read_csv(
@@ -142,7 +141,7 @@ if uploaded_file is not None:
         val_min = int(data['ml'].min())
     else:
         val_min = -1000
-    
+
     # Initialize or retrieve the list of random colors
     if (
         "random_colors" not in st.session_state
@@ -150,13 +149,19 @@ if uploaded_file is not None:
     ):
         st.session_state.random_colors = generate_random_colors(num_traces)
 
+    # Initialize export_format in session_state if not present
+    if "export_format" not in st.session_state:
+        st.session_state.export_format = "png"
+
     # Main plotting parameters section
     with st.expander("Plotting Parameters", expanded=True):
         title = st.text_input("Title of Plot", os.path.basename(uploaded_file.name))
         figsize_width = st.slider("Figure Width", 5, 20, 10)
         figsize_height = st.slider("Figure Height", 3, 15, 5)
         figsize_dpi = st.selectbox("Figure DPI", [150, 200, 300, 500])
-        fraction_column_x = st.selectbox("Fraction X Column (assuming Y column is called Fractions)", data.columns)
+        fraction_column_x = st.selectbox(
+            "Fraction X Column (assuming Y column is called Fractions)", data.columns
+        )
 
         if len(numeric_cols) > 0:
             first_numeric_col = numeric_cols[0]
@@ -174,12 +179,6 @@ if uploaded_file is not None:
             )
 
     # Trace settings section
-    # if n_traces > 1:
-    #     num_traces = st.slider("Number of Traces", 1, n_traces, 1)
-    #     if_fractions = st.checkbox("# Plot fractions", True)
-    # else:
-    #     if_fractions = False
-
     trace_params = []
     for i in range(num_traces):
         with st.expander(f"Trace {i+1} Settings"):
@@ -195,9 +194,13 @@ if uploaded_file is not None:
             )
 
             color = st.color_picker(
-                "Color", value=st.session_state.random_colors[i], key=f"color_trace_{i}"
+                "Color",
+                value=st.session_state.random_colors[i],
+                key=f"color_trace_{i}",
             )
-            line_width = st.slider("Line Width", 1, 5, 2, key=f"line_width_trace_{i}")
+            line_width = st.slider(
+                "Line Width", 1, 5, 2, key=f"line_width_trace_{i}"
+            )
             plot_every = st.slider(
                 "Plot Every N Fractions", 1, 10, 1, key=f"plot_every_trace_{i}"
             )
@@ -272,23 +275,34 @@ if uploaded_file is not None:
                     color,
                     line_width,
                 )
-                st.warning('Fraction column not found. Fractions will not be plotted.')
+                st.warning(
+                    "Fraction column not found. Fractions will not be plotted."
+                )
         st.pyplot(fig)
 
         # Download plot
         buf = io.BytesIO()
-        with st.form(key='export_form'):
+        with st.form(key="export_form"):
             export_format = st.selectbox(
                 "Select Export Format",
                 ["png", "pdf", "svg"],
-                index=["png", "pdf", "svg"].index(st.session_state.export_format),
-                on_change=lambda: st.session_state.update(export_format=export_format)
+                key="export_format",  # This automatically stores the value in session_state
             )
-            submit_button = st.form_submit_button(label='Download Plot')
+            submit_button = st.form_submit_button(label="Download Plot")
             if submit_button:
-                fig.savefig(buf, format=st.session_state.export_format)
-                buf.seek(0)
-                filename = os.path.basename(uploaded_file.name).replace(".csv", "")
-                st.download_button("Download Plot", buf, f"{filename}.{st.session_state.export_format}", f"image/{st.session_state.export_format}")
+                try:
+                    fig.savefig(buf, format=st.session_state.export_format)
+                    buf.seek(0)
+                    filename = os.path.basename(uploaded_file.name).rsplit(".", 1)[0]
+                    st.download_button(
+                        "Download Plot",
+                        buf,
+                        f"{filename}.{st.session_state.export_format}",
+                        f"image/{st.session_state.export_format}",
+                    )
+                except Exception as e:
+                    st.error(f"Error saving figure: {e}")
 
-st.write('Dawid Zyla 2024. Source code available on [GitHub](https://github.com/dzyla/plot-chormatogram/)')
+st.write(
+    'Dawid Zyla 2024. Source code available on [GitHub](https://github.com/dzyla/plot-chormatogram/)'
+)
