@@ -277,10 +277,18 @@ if uploaded_file is not None:
 
         # Download plot
         buf = io.BytesIO()
-        export_format = st.selectbox("Select Export Format", ["png", "pdf", "svg"])
-        fig.savefig(buf, format=export_format)
-        buf.seek(0)
-        filename = os.path.basename(uploaded_file.name).replace(".csv", "")
-        st.download_button("Download Plot", buf, f"{filename}.{export_format}", f"image/{export_format}")
+        with st.form(key='export_form'):
+            export_format = st.selectbox(
+                "Select Export Format",
+                ["png", "pdf", "svg"],
+                index=["png", "pdf", "svg"].index(st.session_state.export_format),
+                on_change=lambda: st.session_state.update(export_format=export_format)
+            )
+            submit_button = st.form_submit_button(label='Download Plot')
+            if submit_button:
+                fig.savefig(buf, format=st.session_state.export_format)
+                buf.seek(0)
+                filename = os.path.basename(uploaded_file.name).replace(".csv", "")
+                st.download_button("Download Plot", buf, f"{filename}.{st.session_state.export_format}", f"image/{st.session_state.export_format}")
 
 st.write('Dawid Zyla 2024. Source code available on [GitHub](https://github.com/dzyla/plot-chormatogram/)')
