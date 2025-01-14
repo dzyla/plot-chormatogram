@@ -280,28 +280,31 @@ if uploaded_file is not None:
                 )
         st.pyplot(fig)
 
-        # Download plot
-        buf = io.BytesIO()
-        with st.form(key="export_form"):
+        # Download plot functionality
+        with st.expander("Export Plot", expanded=True):
             export_format = st.selectbox(
                 "Select Export Format",
                 ["png", "pdf", "svg"],
-                key="export_format",  # This automatically stores the value in session_state
+                index=["png", "pdf", "svg"].index(st.session_state.export_format),
+                key="export_format_select",
             )
-            submit_button = st.form_submit_button(label="Download Plot")
-            if submit_button:
-                try:
-                    fig.savefig(buf, format=st.session_state.export_format)
-                    buf.seek(0)
-                    filename = os.path.basename(uploaded_file.name).rsplit(".", 1)[0]
-                    st.download_button(
-                        "Download Plot",
-                        buf,
-                        f"{filename}.{st.session_state.export_format}",
-                        f"image/{st.session_state.export_format}",
-                    )
-                except Exception as e:
-                    st.error(f"Error saving figure: {e}")
+            # Update session_state export_format based on selection
+            st.session_state.export_format = export_format
+
+            # Prepare the plot for download
+            buf = io.BytesIO()
+            try:
+                fig.savefig(buf, format=export_format)
+                buf.seek(0)
+                filename = os.path.basename(uploaded_file.name).rsplit(".", 1)[0]
+                st.download_button(
+                    "Download Plot",
+                    data=buf,
+                    file_name=f"{filename}.{export_format}",
+                    mime=f"image/{export_format}",
+                )
+            except Exception as e:
+                st.error(f"Error saving figure: {e}")
 
 st.write(
     'Dawid Zyla 2024. Source code available on [GitHub](https://github.com/dzyla/plot-chormatogram/)'
