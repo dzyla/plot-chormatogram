@@ -162,15 +162,15 @@ if uploaded_file is not None:
             first_numeric_col = numeric_cols[0]
             x_lim_min, x_lim_max = st.slider(
                 "X-axis Limits",
-                val_min,
-                int(data[first_numeric_col].max()),
-                (0, int(data[first_numeric_col].max())),
+                float(val_min),
+                float(data[first_numeric_col].max()),
+                (0.0, float(data[first_numeric_col].max())),
             )
             ymin, ymax = st.slider(
                 "Y-axis Limits",
-                int(data[numeric_cols].max().max()) * -2,
-                int(data[numeric_cols].max().max()) * 2,
-                (0, int(data[numeric_cols].max().max())),
+                float(data[numeric_cols].max().max()) * -2,
+                float(data[numeric_cols].max().max()) * 2,
+                (0.0, float(data[numeric_cols].max().max())),
             )
 
     # Trace settings section
