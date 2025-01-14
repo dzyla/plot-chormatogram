@@ -173,6 +173,18 @@ if uploaded_file is not None:
                 (0.0, float(data[numeric_cols].max().max())),
             )
 
+        # Check if export_format is in session_state, if not set it to "png"
+        if 'export_format' not in st.session_state:
+            st.session_state.export_format = "png"
+
+        # Export format selection
+        export_format = st.selectbox(
+            "Select Export Format",
+            ["png", "pdf", "svg"],
+            index=["png", "pdf", "svg"].index(st.session_state.export_format),
+            on_change=lambda: st.session_state.update(export_format=export_format)
+        )
+
     # Trace settings section
     # if n_traces > 1:
     #     num_traces = st.slider("Number of Traces", 1, n_traces, 1)
@@ -277,10 +289,9 @@ if uploaded_file is not None:
 
         # Download plot
         buf = io.BytesIO()
-        export_format = st.selectbox("Select Export Format", ["png", "pdf", "svg"])
-        fig.savefig(buf, format=export_format)
+        fig.savefig(buf, format=st.session_state.export_format)
         buf.seek(0)
         filename = os.path.basename(uploaded_file.name).replace(".csv", "")
-        st.download_button("Download Plot", buf, f"{filename}.{export_format}", f"image/{export_format}")
+        st.download_button("Download Plot", buf, f"{filename}.{st.session_state.export_format}", f"image/{st.session_state.export_format}")
 
 st.write('Dawid Zyla 2024. Source code available on [GitHub](https://github.com/dzyla/plot-chormatogram/)')
