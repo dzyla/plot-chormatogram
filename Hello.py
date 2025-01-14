@@ -223,7 +223,9 @@ if uploaded_file is not None:
             )
 
     # Plot button
-    if st.button("Plot Chromatogram"):
+    plot_clicked = st.button("Plot Chromatogram")
+
+    if plot_clicked:
         fig, ax = plt.subplots(figsize=(figsize_width, figsize_height), dpi=figsize_dpi)
         for (
             x_column,
@@ -280,28 +282,40 @@ if uploaded_file is not None:
                 )
         st.pyplot(fig)
 
-        # Download plot functionality
+        # Store the figure in session_state for later use
+        buf = io.BytesIO()
+        st.session_state['fig'] = fig
+
+    # Export Plot Section (Only show if plot has been generated)
+    if plot_clicked and 'fig' in st.session_state:
         with st.expander("Export Plot", expanded=True):
+            # Select Export Format
             export_format = st.selectbox(
                 "Select Export Format",
                 ["png", "pdf", "svg"],
-                index=["png", "pdf", "svg"].index(st.session_state.export_format),
-                key="export_format_select",
+                index=["png", "pdf", "svg"].index(st.session_state.export_format)
+                if st.session_state.export_format in ["png", "pdf", "svg"]
+                else 0,
+                key="export_format",
             )
-            # Update session_state export_format based on selection
-            st.session_state.export_format = export_format
+
+            # Update the session_state.export_format based on user selection
+            if export_format in ["png", "pdf", "svg"]:
+                st.session_state.export_format = export_format
+            else:
+                st.session_state.export_format = "png"  # Default fallback
 
             # Prepare the plot for download
             buf = io.BytesIO()
             try:
-                fig.savefig(buf, format=export_format)
+                st.session_state['fig'].savefig(buf, format=st.session_state.export_format)
                 buf.seek(0)
                 filename = os.path.basename(uploaded_file.name).rsplit(".", 1)[0]
                 st.download_button(
                     "Download Plot",
                     data=buf,
-                    file_name=f"{filename}.{export_format}",
-                    mime=f"image/{export_format}",
+                    file_name=f"{filename}.{st.session_state.export_format}",
+                    mime=f"image/{st.session_state.export_format}",
                 )
             except Exception as e:
                 st.error(f"Error saving figure: {e}")
