@@ -282,48 +282,34 @@ if uploaded_file is not None:
 
         # Download plot functionality
         with st.expander("Export Plot", expanded=True):
-            # Initialize export_format in session_state if not present
-            if "export_format" not in st.session_state:
-                st.session_state.export_format = "png"
-
-            # Create columns for format selection and download button
-            col1, col2 = st.columns([1, 2])
-
-            with col1:
-                format_options = ["png", "pdf", "svg"]
-                export_format = st.radio(
-                    "Export Format",
-                    format_options,
-                    index=format_options.index(st.session_state.export_format),
-                    key="export_format_radio",
-                    horizontal=True
-                )
-                st.session_state.export_format = export_format
-
-            with col2:
-                # Prepare the plot for download
-                buf = io.BytesIO()
-                try:
-                    fig.savefig(buf, format=export_format, bbox_inches='tight')
-                    buf.seek(0)
-                    filename = os.path.basename(uploaded_file.name).rsplit(".", 1)[0]
-
-                    # Determine correct MIME type
-                    mime_types = {
-                        "png": "image/png",
-                        "pdf": "application/pdf",
-                        "svg": "image/svg+xml"
-                    }
-
-                    st.download_button(
-                        "Download Plot",
-                        data=buf,
-                        file_name=f"{filename}.{export_format}",
-                        mime=mime_types[export_format],
-                        use_container_width=True
-                    )
-                except Exception as e:
-                    st.error(f"Error saving figure: {e}")
+            # Create columns for the three download buttons
+            col1, col2, col3 = st.columns(3)
+        
+            # Define the formats and their MIME types
+            formats = {
+                "png": "image/png",
+                "pdf": "application/pdf",
+                "svg": "image/svg+xml"
+            }
+        
+            filename = os.path.basename(uploaded_file.name).rsplit(".", 1)[0]
+        
+            # Create a download button for each format
+            for col, (format_type, mime_type) in zip([col1, col2, col3], formats.items()):
+                with col:
+                    buf = io.BytesIO()
+                    try:
+                        fig.savefig(buf, format=format_type, bbox_inches='tight')
+                        buf.seek(0)
+                        st.download_button(
+                            f"Download {format_type.upper()}",
+                            data=buf,
+                            file_name=f"{filename}.{format_type}",
+                            mime=mime_type,
+                            use_container_width=True
+                        )
+                    except Exception as e:
+                        st.error(f"Error saving {format_type}: {e}")
 
 st.write(
     'Dawid Zyla 2024. Source code available on [GitHub](https://github.com/dzyla/plot-chormatogram/)'
