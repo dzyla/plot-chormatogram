@@ -109,11 +109,12 @@ if uploaded_file is not None:
 
         # Download plot
         buf = io.BytesIO()
-        fig.savefig(buf, format="png")
+        export_format = st.selectbox("Select Export Format", ["png", "pdf", "svg"])
+        fig.savefig(buf, format=export_format)
         buf.seek(0)
         filename = uploaded_file.name
         filename = filename.replace('.csv','')
-        st.download_button("Download Plot", buf, f"{os.path.basename(filename)}.png", "image/png")
+        st.download_button("Download Plot", buf, f"{os.path.basename(filename)}.{export_format}", f"image/{export_format}")
 
 # Run the Streamlit app with 'streamlit run [filename].py'
 st.write('Dawid Zyla 2024. Source code available on [GitHub](https://github.com/dzyla/plot-chormatogram/)')
