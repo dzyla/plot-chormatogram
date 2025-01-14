@@ -223,9 +223,7 @@ if uploaded_file is not None:
             )
 
     # Plot button
-    plot_clicked = st.button("Plot Chromatogram")
-
-    if plot_clicked:
+    if st.button("Plot Chromatogram"):
         fig, ax = plt.subplots(figsize=(figsize_width, figsize_height), dpi=figsize_dpi)
         for (
             x_column,
@@ -282,43 +280,50 @@ if uploaded_file is not None:
                 )
         st.pyplot(fig)
 
-        # Store the figure in session_state for later use
-        buf = io.BytesIO()
-        st.session_state['fig'] = fig
-
-    # Export Plot Section (Only show if plot has been generated)
-    if plot_clicked and 'fig' in st.session_state:
+        # Download plot functionality
         with st.expander("Export Plot", expanded=True):
-            # Select Export Format
-            export_format = st.selectbox(
-                "Select Export Format",
-                ["png", "pdf", "svg"],
-                index=["png", "pdf", "svg"].index(st.session_state.export_format)
-                if st.session_state.export_format in ["png", "pdf", "svg"]
-                else 0,
-                key="export_format",
-            )
+            # Initialize export_format in session_state if not present
+            if "export_format" not in st.session_state:
+                st.session_state.export_format = "png"
 
-            # Update the session_state.export_format based on user selection
-            if export_format in ["png", "pdf", "svg"]:
-                st.session_state.export_format = export_format
-            else:
-                st.session_state.export_format = "png"  # Default fallback
+            # Create columns for format selection and download button
+            col1, col2 = st.columns([1, 2])
 
-            # Prepare the plot for download
-            buf = io.BytesIO()
-            try:
-                st.session_state['fig'].savefig(buf, format=st.session_state.export_format)
-                buf.seek(0)
-                filename = os.path.basename(uploaded_file.name).rsplit(".", 1)[0]
-                st.download_button(
-                    "Download Plot",
-                    data=buf,
-                    file_name=f"{filename}.{st.session_state.export_format}",
-                    mime=f"image/{st.session_state.export_format}",
+            with col1:
+                format_options = ["png", "pdf", "svg"]
+                export_format = st.radio(
+                    "Export Format",
+                    format_options,
+                    index=format_options.index(st.session_state.export_format),
+                    key="export_format_radio",
+                    horizontal=True
                 )
-            except Exception as e:
-                st.error(f"Error saving figure: {e}")
+                st.session_state.export_format = export_format
+
+            with col2:
+                # Prepare the plot for download
+                buf = io.BytesIO()
+                try:
+                    fig.savefig(buf, format=export_format, bbox_inches='tight')
+                    buf.seek(0)
+                    filename = os.path.basename(uploaded_file.name).rsplit(".", 1)[0]
+
+                    # Determine correct MIME type
+                    mime_types = {
+                        "png": "image/png",
+                        "pdf": "application/pdf",
+                        "svg": "image/svg+xml"
+                    }
+
+                    st.download_button(
+                        "Download Plot",
+                        data=buf,
+                        file_name=f"{filename}.{export_format}",
+                        mime=mime_types[export_format],
+                        use_container_width=True
+                    )
+                except Exception as e:
+                    st.error(f"Error saving figure: {e}")
 
 st.write(
     'Dawid Zyla 2024. Source code available on [GitHub](https://github.com/dzyla/plot-chormatogram/)'
