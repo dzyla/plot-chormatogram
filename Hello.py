@@ -8,14 +8,11 @@ import random
 import matplotlib.colors as mcolors
 import os
 
+# Function to generate a random color.
+def generate_random_color():
+    return random.choice(list(mcolors.CSS4_COLORS.values()))
 
-def generate_random_colors(num_colors):
-    return [
-        random.choice(list(mcolors.CSS4_COLORS.values())) for _ in range(num_colors)
-    ]
-
-
-# Function to plot chromatogram
+# Function to plot the chromatogram with modified X and Y.
 def plot_chromatogram(
     ax,
     data,
@@ -24,277 +21,357 @@ def plot_chromatogram(
     plot_every,
     title,
     sample_name,
+    mod_x,
+    x_scale,
     mod_y,
     y_scale,
     x_lim,
     ymin,
     ymax,
     do_fractions,
-    column_fractions,
+    fraction_column,
     move_fraction_text,
     color,
     line_width,
+    show_legend,
+    show_grid
 ):
-    if sample_name is None:
+    # Adjust x and y signals based on user modifications.
+    x_data = (data[x_column].astype(float) + mod_x) * x_scale
+    y_data = (data[y_column].astype(float) + mod_y) * y_scale
+
+    if sample_name is None or sample_name.strip() == "":
         sample_name = "UV 280 nm"
 
-    ax.plot(
-        data[x_column].astype(float),
-        (data[y_column].astype(float) + mod_y) * y_scale,
-        label=sample_name,
-        color=color,
-        linewidth=line_width,
-    )
+    # Plot the trace.
+    ax.plot(x_data, y_data, label=sample_name, color=color, linewidth=line_width)
 
-    # Fraction plotting
+    # Plot fractions if enabled.
     if do_fractions:
         vline_scale = 0.1
         y_scale_val = max(data[y_column]) - min(data[y_column])
         vline_height = y_scale_val * vline_scale
-
         if ymax is not None:
             vline_height = ymax * vline_scale
-        for n, (ml, fraction) in enumerate(
-            zip(data[column_fractions].dropna(), data["Fraction"].dropna())
-        ):
-            ml = float(ml)
-            if float(x_lim[0]) <= ml <= float(x_lim[1]):
+        # Iterate over fraction data.
+        for n, (ml, fraction) in enumerate(zip(data[fraction_column].dropna(), data["Fraction"].dropna())):
+            try:
+                ml_val = float(ml)
+            except ValueError:
+                continue
+            if float(x_lim[0]) <= ml_val <= float(x_lim[1]):
                 if pd.notna(ml) and pd.notna(fraction) and n % plot_every == 0:
                     font_dict = {"size": 8}
-                    ax.text(
-                        ml,
-                        ymin + move_fraction_text,
-                        fraction,
-                        fontdict=font_dict,
-                        rotation=90,
-                    )
-                    ax.vlines(
-                        ml,
-                        ymin,
-                        ymin + vline_height,
-                        alpha=0.4,
-                        color="k",
-                        linestyles="--",
-                    )
+                    ax.text(ml_val, ymin + move_fraction_text, fraction, fontdict=font_dict, rotation=90)
+                    ax.vlines(ml_val, ymin, ymin + vline_height, alpha=0.4, color="k", linestyles="--")
 
+    # Set labels and title.
     ax.set_xlabel(x_column)
     ax.set_ylabel(y_column)
     ax.set_title(title, weight="bold")
-    ax.legend()
-    ax.grid(True, alpha=0.2)
+    if show_legend:
+        ax.legend()
+    if show_grid:
+        ax.grid(True, alpha=0.2)
 
+    # Set axis limits.
     if ymax is not None:
         ax.set_ylim(ymin, ymax)
-
     if x_lim is not None:
         ax.set_xlim(x_lim[0], x_lim[1])
-
+    # Adjust tick spacing.
     if data[x_column].max() > 20:
-        ax.xaxis.set_major_locator(
-            ticker.MultipleLocator(int(data[x_column].max() / 25))
-        )
+        ax.xaxis.set_major_locator(ticker.MultipleLocator(int(data[x_column].max() / 25)))
         ax.set_xticklabels(np.array(ax.get_xticks()).astype(int), rotation=90)
     else:
         ax.xaxis.set_major_locator(ticker.MultipleLocator(1))
 
-
-# Streamlit application starts here
+# Application title.
 st.title("Chromatogram Plotter")
 
-# File uploader
-uploaded_file = st.file_uploader("Choose a CSV/Text file", type=["csv", "txt", "asc"])
+# File uploader: allow multiple files.
+uploaded_files = st.file_uploader(
+    "Choose one or more CSV/Text files", 
+    type=["csv", "txt", "asc"], 
+    accept_multiple_files=True,
+    help="Upload one or more files (CSV, TXT, or ASC) containing your chromatogram data."
+)
 
-if uploaded_file is not None:
-    st.write(f"Selected file:", f"__{uploaded_file.name}__")
-
-    # Read CSV file
-    uploaded_file.seek(0)
-
-    if uploaded_file.name.endswith(".asc"):
-        data = pd.read_csv(uploaded_file, delimiter="\t", header=2)
-    else:
+# Parse the uploaded files.
+data_dict = {}
+if uploaded_files is not None and len(uploaded_files) > 0:
+    st.write("Uploaded Files:")
+    for file in uploaded_files:
+        file_name = os.path.basename(file.name)
+        file_key = os.path.splitext(file_name)[0]  # Remove extension for display.
+        st.write(f"__{file_key}__")
+        file.seek(0)
         try:
-            data = pd.read_csv(
-                uploaded_file, encoding="utf-16", delimiter="\t", header=2
+            if file.name.endswith(".asc"):
+                df = pd.read_csv(file, delimiter="\t", header=2)
+            else:
+                try:
+                    df = pd.read_csv(file, encoding="utf-16", delimiter="\t", header=2)
+                except UnicodeError:
+                    buffer = file.getvalue().decode("utf-8")
+                    text_stream = io.StringIO(buffer)
+                    df = pd.read_csv(text_stream, header=2)
+                    df = df.dropna(axis=1, how="all")
+            data_dict[file_key] = df
+        except Exception as e:
+            st.error(f"Error reading file {file_name}: {e}")
+
+# Continue only if at least one file is successfully read.
+if data_dict:
+    # Choose the number of traces outside the form.
+    num_traces = st.number_input(
+        "Number of Traces", 
+        min_value=1, 
+        max_value=10, 
+        value=1, 
+        step=1,
+        help="Set the number of chromatogram traces you wish to plot."
+    )
+
+    # Ensure that colors for each trace are stored in session state.
+    for i in range(int(num_traces)):
+        key = f"color_trace_{i}"
+        if key not in st.session_state:
+            st.session_state[key] = generate_random_color()
+
+    # Create a form to group settings.
+    with st.form("plot_settings_form"):
+        st.subheader("Global Plotting Parameters")
+        with st.expander("Global Plotting Parameters", expanded=False):
+            # Global parameters come from the first uploaded file by default.
+            first_key = list(data_dict.keys())[0]
+            first_df = data_dict[first_key]
+
+            default_title = first_key
+            title = st.text_input(
+                "Title of Plot", 
+                default_title, 
+                help="Enter a title for the overall plot."
             )
-        except UnicodeError:
-            buffer = uploaded_file.getvalue().decode("utf-8")
-            text_stream = io.StringIO(buffer)
-            data = pd.read_csv(text_stream, header=2)
-            data = data.dropna(axis=1, how="all")
-
-    st.write("Columns in your file:", data.columns.tolist())
-
-    # Filter numeric columns for slider limits
-    numeric_cols = data.select_dtypes(include="number").columns
-
-    # Slider for number of traces
-    n_traces = len(numeric_cols) // 2
-    if n_traces > 1:
-        num_traces = st.slider("Number of Traces", 1, len(numeric_cols) // 2, 1)
-        if_fractions = st.checkbox("# Plot fractions", True)
-    else:
-        num_traces = 1
-        if_fractions = False
-
-    if 'ml' in data.columns:
-        val_min = int(data['ml'].min())
-    else:
-        val_min = -1000
-
-    # Initialize or retrieve the list of random colors
-    if (
-        "random_colors" not in st.session_state
-        or len(st.session_state.random_colors) < num_traces
-    ):
-        st.session_state.random_colors = generate_random_colors(num_traces)
-
-    # Initialize export_format in session_state if not present
-    if "export_format" not in st.session_state:
-        st.session_state.export_format = "png"
-
-    # Main plotting parameters section
-    with st.expander("Plotting Parameters", expanded=True):
-        title = st.text_input("Title of Plot", os.path.basename(uploaded_file.name))
-        figsize_width = st.slider("Figure Width", 5, 20, 10)
-        figsize_height = st.slider("Figure Height", 3, 15, 5)
-        figsize_dpi = st.selectbox("Figure DPI", [150, 200, 300, 500])
-        fraction_column_x = st.selectbox(
-            "Fraction X Column (assuming Y column is called Fractions)", data.columns
-        )
-
-        if len(numeric_cols) > 0:
-            first_numeric_col = numeric_cols[0]
-            x_lim_min, x_lim_max = st.slider(
-                "X-axis Limits",
-                float(val_min),
-                float(data[first_numeric_col].max()),
-                (0.0, float(data[first_numeric_col].max())),
+            # Use columns to narrow width for figure size parameters.
+            col1, col2, col3 = st.columns(3)
+            figsize_width = col1.slider(
+                "Figure Width", 5, 20, 10, 
+                help="Adjust the width of the figure (in inches)."
             )
-            ymin, ymax = st.slider(
-                "Y-axis Limits",
-                float(data[numeric_cols].max().max()) * -2,
-                float(data[numeric_cols].max().max()) * 2,
-                (0.0, float(data[numeric_cols].max().max())),
+            figsize_height = col2.slider(
+                "Figure Height", 3, 15, 5, 
+                help="Adjust the height of the figure (in inches)."
+            )
+            figsize_dpi = col3.selectbox(
+                "Figure DPI", [150, 200, 300, 500], 
+                help="Select the resolution (dots per inch) for the figure."
             )
 
-    # Trace settings section
-    trace_params = []
-    for i in range(num_traces):
-        with st.expander(f"Trace {i+1} Settings"):
-            x_column = st.selectbox("X column", numeric_cols, key=f"x_column_trace_{i}")
-            default_y_column = (
-                numeric_cols[1] if len(numeric_cols) > 1 else numeric_cols[0]
+            # For fraction plotting.
+            fraction_column = st.selectbox(
+                "Fraction X Column (for fraction markers)", 
+                first_df.columns.tolist(),
+                help="Select the column that contains the X-values for fraction markers."
             )
-            y_column = st.selectbox(
-                "Y column",
-                numeric_cols,
-                index=1 if len(numeric_cols) > 1 else 0,
-                key=f"y_column_trace_{i}",
+            do_fractions = st.checkbox(
+                "Plot Fractions", 
+                value=True,
+                help="Toggle this to overlay fraction markers on the plot."
+            )
+            move_fraction_text = st.number_input(
+                "Move Fraction Text (Y-offset)", 
+                value=0,
+                help="Adjust the vertical offset for fraction text annotations."
             )
 
-            color = st.color_picker(
-                "Color",
-                value=st.session_state.random_colors[i],
-                key=f"color_trace_{i}",
-            )
-            line_width = st.slider(
-                "Line Width", 1, 5, 2, key=f"line_width_trace_{i}"
-            )
-            plot_every = st.slider(
-                "Plot Every N Fractions", 1, 10, 1, key=f"plot_every_trace_{i}"
-            )
-            sample_name = st.text_input(
-                "Sample Name", y_column, key=f"sample_name_trace_{i}"
-            )
-            mod_y = st.number_input("Modification Y", value=0, key=f"mod_y_trace_{i}")
-            y_scale = st.number_input("Y Scale", value=1.0, key=f"y_scale_trace_{i}")
-            trace_params.append(
-                (
-                    x_column,
-                    y_column,
-                    color,
-                    plot_every,
-                    sample_name,
-                    mod_y,
-                    y_scale,
-                    line_width,
+            # Global slider for x- and y-axis limits.
+            numeric_cols_global = first_df.select_dtypes(include="number").columns
+            if len(numeric_cols_global) > 0:
+                first_numeric = numeric_cols_global[0]
+                x_lim_min, x_lim_max = st.slider(
+                    "X-axis Limits",
+                    float(first_df[first_numeric].min()),
+                    float(first_df[first_numeric].max()),
+                    (0.0, float(first_df[first_numeric].max())),
+                    help="Set the minimum and maximum values for the X-axis."
                 )
+                global_ymax = float(first_df[numeric_cols_global].max().max())
+                ymin, ymax = st.slider(
+                    "Y-axis Limits",
+                    -2 * global_ymax,
+                    2 * global_ymax,
+                    (0.0, global_ymax),
+                    help="Set the minimum and maximum values for the Y-axis."
+                )
+            else:
+                x_lim_min, x_lim_max = 0.0, 100.0
+                ymin, ymax = 0.0, 100.0
+
+            # Use columns for the two additional plot options.
+            col_legend, col_grid = st.columns(2)
+            show_legend = col_legend.checkbox(
+                "Show Legend", 
+                value=True,
+                help="Toggle this to add or remove the legend from the plot."
+            )
+            show_grid = col_grid.checkbox(
+                "Show Grid", 
+                value=True,
+                help="Toggle this to include or remove the grid from the plot."
             )
 
-    # Plot button
-    if st.button("Plot Chromatogram"):
+        st.markdown("---")
+        st.subheader("Trace Settings")
+        # Prepare a list to collect trace parameters.
+        trace_params = []
+
+        # For each trace, use an expander for trace settings.
+        for i in range(int(num_traces)):
+            with st.expander(f"Trace {i+1} Settings", expanded=False):
+                # Select data file for the trace.
+                file_key = st.selectbox(
+                    "Data File", 
+                    list(data_dict.keys()), 
+                    key=f"data_file_trace_{i}",
+                    help="Select which data file to use for this trace."
+                )
+                df = data_dict[file_key]
+                # Show numeric columns available in that file.
+                numeric_cols = df.select_dtypes(include="number").columns.tolist()
+                if not numeric_cols:
+                    st.error("No numeric columns found in the file. Please choose a different file.")
+                    continue
+                x_column = st.selectbox(
+                    "X Column", 
+                    numeric_cols, 
+                    key=f"x_column_trace_{i}",
+                    help="Select the column to be used for the X-axis. Modification and scaling will be applied."
+                )
+                y_column = st.selectbox(
+                    "Y Column", 
+                    numeric_cols, 
+                    index=1 if len(numeric_cols) > 1 else 0, 
+                    key=f"y_column_trace_{i}",
+                    help="Select the column to be used for the Y-axis. Modification and scaling will be applied."
+                )
+
+                # Inputs for modifying the x and y signals.
+                mod_x = st.number_input(
+                    "Modification X", 
+                    value=0.0, 
+                    key=f"mod_x_trace_{i}",
+                    help="Value added to the X-axis signal. This shifts the X-axis baseline."
+                )
+                x_scale = st.number_input(
+                    "X Scale", 
+                    value=1.0, 
+                    key=f"x_scale_trace_{i}",
+                    help="Factor to multiply the X-axis signal. Use to scale the X-axis values."
+                )
+                mod_y = st.number_input(
+                    "Modification Y", 
+                    value=0.0, 
+                    key=f"mod_y_trace_{i}",
+                    help="Value added to the Y-axis signal. This shifts the Y-axis baseline."
+                )
+                y_scale = st.number_input(
+                    "Y Scale", 
+                    value=1.0, 
+                    key=f"y_scale_trace_{i}",
+                    help="Factor to multiply the Y-axis signal. Use to scale the Y-axis values."
+                )
+
+                # Additional trace parameters.
+                color = st.color_picker(
+                    "Color", 
+                    value=st.session_state[f"color_trace_{i}"], 
+                    key=f"color_trace_{i}_picker",
+                    help="Select a color for the trace."
+                )
+                st.session_state[f"color_trace_{i}"] = color
+
+                line_width = st.slider(
+                    "Line Width", 
+                    1, 5, 2, 
+                    key=f"line_width_trace_{i}",
+                    help="Set the width of the trace line."
+                )
+                plot_every = st.slider(
+                    "Plot Every N Fractions", 
+                    1, 10, 1, 
+                    key=f"plot_every_trace_{i}",
+                    help="Choose how often to annotate fractions (every Nth fraction)."
+                )
+                sample_name = st.text_input(
+                    "Sample Name", 
+                    file_key, 
+                    key=f"sample_name_trace_{i}",
+                    help="Enter a sample name for the trace. This appears in the legend."
+                )
+
+                # Append dictionary with all settings for this trace.
+                trace_params.append({
+                    "file_key": file_key,
+                    "df": df,
+                    "x_column": x_column,
+                    "y_column": y_column,
+                    "mod_x": mod_x,
+                    "x_scale": x_scale,
+                    "mod_y": mod_y,
+                    "y_scale": y_scale,
+                    "color": color,
+                    "line_width": line_width,
+                    "plot_every": plot_every,
+                    "sample_name": sample_name,
+                })
+
+        # Form submission button.
+        submitted = st.form_submit_button("Submit Changes")
+    # End of form
+
+    # Plot the chromatogram only when the form is submitted.
+    if submitted:
         fig, ax = plt.subplots(figsize=(figsize_width, figsize_height), dpi=figsize_dpi)
-        for (
-            x_column,
-            y_column,
-            color,
-            plot_every,
-            sample_name,
-            mod_y,
-            y_scale,
-            line_width,
-        ) in trace_params:
+        for params in trace_params:
+            df = params["df"]
             try:
                 plot_chromatogram(
                     ax,
-                    data,
-                    x_column,
-                    y_column,
-                    plot_every,
+                    df,
+                    params["x_column"],
+                    params["y_column"],
+                    params["plot_every"],
                     title,
-                    sample_name,
-                    mod_y,
-                    y_scale,
+                    params["sample_name"],
+                    params["mod_x"],
+                    params["x_scale"],
+                    params["mod_y"],
+                    params["y_scale"],
                     (x_lim_min, x_lim_max),
                     ymin,
                     ymax,
-                    if_fractions,
-                    fraction_column_x,
-                    0,
-                    color,
-                    line_width,
+                    do_fractions,
+                    fraction_column,
+                    move_fraction_text,
+                    params["color"],
+                    params["line_width"],
+                    show_legend,
+                    show_grid
                 )
-            except KeyError:
-                plot_chromatogram(
-                    ax,
-                    data,
-                    x_column,
-                    y_column,
-                    plot_every,
-                    title,
-                    sample_name,
-                    mod_y,
-                    y_scale,
-                    (x_lim_min, x_lim_max),
-                    ymin,
-                    ymax,
-                    False,
-                    fraction_column_x,
-                    0,
-                    color,
-                    line_width,
-                )
-                st.warning(
-                    "Fraction column not found. Fractions will not be plotted."
-                )
+            except KeyError as e:
+                st.warning(f"Missing column in file {params['file_key']}: {e}")
         st.pyplot(fig)
 
-        # Download plot functionality
+        # Provide an export section.
         with st.expander("Export Plot", expanded=True):
-            # Create columns for the three download buttons
             col1, col2, col3 = st.columns(3)
-        
-            # Define the formats and their MIME types
             formats = {
                 "png": "image/png",
                 "pdf": "application/pdf",
                 "svg": "image/svg+xml"
             }
-        
-            filename = os.path.basename(uploaded_file.name).rsplit(".", 1)[0]
-        
-            # Create a download button for each format
+            filename = title if title else first_key
             for col, (format_type, mime_type) in zip([col1, col2, col3], formats.items()):
                 with col:
                     buf = io.BytesIO()
@@ -306,11 +383,12 @@ if uploaded_file is not None:
                             data=buf,
                             file_name=f"{filename}.{format_type}",
                             mime=mime_type,
-                            use_container_width=True
+                            use_container_width=True,
+                            help=f"Download the plot in {format_type.upper()} format."
                         )
                     except Exception as e:
                         st.error(f"Error saving {format_type}: {e}")
 
-st.write(
-    'Dawid Zyla 2024. Source code available on [GitHub](https://github.com/dzyla/plot-chormatogram/)'
-)
+    st.write(
+        'Dawid Zyla 2025. Source code available on [GitHub](https://github.com/dzyla/plot-chormatogram/)'
+    )
