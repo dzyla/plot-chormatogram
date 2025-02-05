@@ -9,6 +9,9 @@ import random
 import matplotlib.colors as mcolors
 import os
 
+st.set_page_config(page_icon=":chart_with_upwards_trend:", layout="centered", page_title='Chromatogram plotter')
+
+
 # Function to generate a random color.
 def generate_random_color():
     return random.choice(list(mcolors.CSS4_COLORS.values()))
@@ -192,11 +195,11 @@ def plot_chromatogram_plotly(
     return fig
 
 # Application title.
-st.title("Chromatogram Plotter")
+st.title("Chromatogram Plotter :chart_with_upwards_trend:")
 
 # File uploader.
 uploaded_files = st.file_uploader(
-    "Choose one or more CSV/Text files", 
+    "Choose one or more CSV/Text files (exported from Unicorn)", 
     type=["csv", "txt", "asc"], 
     accept_multiple_files=True,
     help="Upload one or more files (CSV, TXT, or ASC) containing your chromatogram data."
@@ -608,6 +611,6 @@ if data_dict:
                     except Exception as e:
                         st.error(f"Error saving {format_type}: {e}")
 
-        st.write(
-            'Dawid Zyla 2025. Source code available on [GitHub](https://github.com/dzyla/plot-chormatogram/)'
-        )
+st.write(
+    'Dawid Zyla 2025. Source code available on [GitHub](https://github.com/dzyla/plot-chormatogram/)'
+)
