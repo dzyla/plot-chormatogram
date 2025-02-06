@@ -2,6 +2,11 @@
 
 A Streamlit application for plotting chromatogram data from CSV, TXT, or ASC files (exported from Unicorn). It allows users to upload data, customize plot appearance, and export the resulting visualizations.
 
+
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.14827396.svg)](https://doi.org/10.5281/zenodo.14827396)
+
+
+
 ## Features
 
 *   **Data Upload:** Supports uploading one or more CSV, TXT, or ASC files.
