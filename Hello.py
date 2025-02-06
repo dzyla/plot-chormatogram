@@ -11,7 +11,6 @@ import os
 
 st.set_page_config(page_icon=":chart_with_upwards_trend:", layout="centered", page_title='Chromatogram plotter')
 
-
 # Function to generate a random color.
 def generate_random_color():
     return random.choice(list(mcolors.CSS4_COLORS.values()))
@@ -37,6 +36,7 @@ def plot_chromatogram(
     move_fraction_text,
     color,
     line_width,
+    line_style,
     show_legend,
     show_grid
 ):
@@ -47,7 +47,16 @@ def plot_chromatogram(
     if not sample_name or sample_name.strip() == "":
         sample_name = "UV 280 nm"
 
-    ax.plot(x_data, y_data, label=sample_name, color=color, linewidth=line_width)
+    # Mapping for Matplotlib linestyles.
+    style_map = {
+         "Solid": "-",
+         "Dashed": "--",
+         "Dashdot": "-.",
+         "Dotted": ":"
+    }
+    line_style_mpl = style_map.get(line_style, "-")
+    
+    ax.plot(x_data, y_data, label=sample_name, color=color, linewidth=line_width, linestyle=line_style_mpl)
 
     # Add fraction markers if enabled.
     if do_fractions:
@@ -107,6 +116,7 @@ def plot_chromatogram_plotly(
     move_fraction_text,
     color,
     line_width,
+    line_style,
     show_legend,
     show_grid
 ):
@@ -114,13 +124,22 @@ def plot_chromatogram_plotly(
     x_data = ((data[x_column].astype(float)) + mod_x) * x_scale
     y_data = ((data[y_column].astype(float)) + mod_y) * y_scale
 
+    # Mapping for Plotly dash styles.
+    style_map_plotly = {
+         "Solid": "solid",
+         "Dashed": "dash",
+         "Dashdot": "dashdot",
+         "Dotted": "dot"
+    }
+    line_style_plotly = style_map_plotly.get(line_style, "solid")
+
     # Create the base figure and add the trace.
     fig = go.Figure()
     fig.add_trace(go.Scatter(
         x=x_data,
         y=y_data,
         mode="lines",
-        line=dict(color=color, width=line_width),
+        line=dict(color=color, width=line_width, dash=line_style_plotly),
         name=sample_name if sample_name and sample_name.strip() != "" else "UV 280 nm",
         hovertemplate="Elution Volume: %{x}<br>Signal: %{y}<extra></extra>"
     ))
@@ -136,7 +155,6 @@ def plot_chromatogram_plotly(
         # For each fraction marker, use the fraction marker positions directly.
         for n, (ml, fraction) in enumerate(zip(data[fraction_column].dropna(), data["Fraction"].dropna())):
             try:
-                # Use the ml value directly (no scaling).
                 ml_val = float(ml)
             except ValueError:
                 continue
@@ -333,6 +351,7 @@ if data_dict:
         trace_params = []
         for i in range(int(num_traces)):
             with st.expander(f"Trace {i+1} Settings", expanded=False):
+                # Row 1: Data File (full width).
                 file_key = st.selectbox(
                     "Data File", 
                     list(data_dict.keys()), 
@@ -344,68 +363,93 @@ if data_dict:
                 if not numeric_cols:
                     st.error("No numeric columns found in the file. Please choose a different file.")
                     continue
-                x_column = st.selectbox(
-                    "X Column", 
-                    numeric_cols, 
-                    key=f"x_column_trace_{i}",
-                    help="Select the column for the X-axis. Modification and scaling will be applied."
-                )
-                y_column = st.selectbox(
-                    "Y Column", 
-                    numeric_cols, 
-                    index=1 if len(numeric_cols) > 1 else 0, 
-                    key=f"y_column_trace_{i}",
-                    help="Select the column for the Y-axis. Modification and scaling will be applied."
-                )
-                mod_x = st.number_input(
-                    "Modification X", 
-                    value=0.0, 
-                    key=f"mod_x_trace_{i}",
-                    help="Value added to the X-axis signal. This shifts the X-axis baseline."
-                )
-                x_scale = st.number_input(
-                    "X Scale", 
-                    value=1.0, 
-                    key=f"x_scale_trace_{i}",
-                    help="Factor to multiply the X-axis signal. Use to scale the X-axis values."
-                )
-                mod_y = st.number_input(
-                    "Modification Y", 
-                    value=0.0, 
-                    key=f"mod_y_trace_{i}",
-                    help="Value added to the Y-axis signal. This shifts the Y-axis baseline."
-                )
-                y_scale = st.number_input(
-                    "Y Scale", 
-                    value=1.0, 
-                    key=f"y_scale_trace_{i}",
-                    help="Factor to multiply the Y-axis signal. Use to scale the Y-axis values."
-                )
-                color = st.color_picker(
-                    "Color", 
-                    value=st.session_state[f"color_trace_{i}"], 
-                    key=f"color_trace_{i}_picker",
-                    help="Select a color for the trace."
-                )
-                st.session_state[f"color_trace_{i}"] = color
-                line_width = st.slider(
-                    "Line Width", 
-                    1, 5, 2, 
-                    key=f"line_width_trace_{i}",
-                    help="Set the width of the trace line."
-                )
-                plot_every = st.slider(
-                    "Plot Every N Fractions", 
-                    1, 10, 1, 
-                    key=f"plot_every_trace_{i}",
-                    help="Choose how often to annotate fractions (every Nth fraction)."
-                )
-                sample_name = st.text_input(
-                    "Sample Name", 
-                    file_key, 
-                    key=f"sample_name_trace_{i}",
-                    help="Enter a sample name for the trace. This appears in the legend."
-                )
+
+                # Row 2: Sample Name, X Column and Y Column in three columns.
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    sample_name = st.text_input(
+                        "Sample Name", 
+                        file_key, 
+                        key=f"sample_name_trace_{i}",
+                        help="Enter a sample name for the trace. This appears in the legend."
+                    )
+                with col2:
+                    x_column = st.selectbox(
+                        "X Column", 
+                        numeric_cols, 
+                        key=f"x_column_trace_{i}",
+                        help="Select the column for the X-axis. Modification and scaling will be applied."
+                    )
+                with col3:
+                    y_column = st.selectbox(
+                        "Y Column", 
+                        numeric_cols, 
+                        index=1 if len(numeric_cols) > 1 else 0, 
+                        key=f"y_column_trace_{i}",
+                        help="Select the column for the Y-axis. Modification and scaling will be applied."
+                    )
+                # Row 3: Modifications and Scales.
+                col1, col2, col3, col4 = st.columns(4)
+                with col1:
+                    mod_x = st.number_input(
+                        "Modification X", 
+                        value=0.0, 
+                        key=f"mod_x_trace_{i}",
+                        help="Value added to the X-axis signal. This shifts the X-axis baseline."
+                    )
+                with col2:
+                    x_scale = st.number_input(
+                        "X Scale", 
+                        value=1.0, 
+                        key=f"x_scale_trace_{i}",
+                        help="Factor to multiply the X-axis signal. Use to scale the X-axis values."
+                    )
+                with col3:
+                    mod_y = st.number_input(
+                        "Modification Y", 
+                        value=0.0, 
+                        key=f"mod_y_trace_{i}",
+                        help="Value added to the Y-axis signal. This shifts the Y-axis baseline."
+                    )
+                with col4:
+                    y_scale = st.number_input(
+                        "Y Scale", 
+                        value=1.0, 
+                        key=f"y_scale_trace_{i}",
+                        help="Factor to multiply the Y-axis signal. Use to scale the Y-axis values."
+                    )
+                # Row 4: Color, Line Width, Line Style, Plot Every N Fractions.
+                col1, col2, col3, col4 = st.columns(4)
+                with col1:
+                    color = st.color_picker(
+                        "Color", 
+                        value=st.session_state[f"color_trace_{i}"], 
+                        key=f"color_trace_{i}_picker",
+                        help="Select a color for the trace."
+                    )
+                    st.session_state[f"color_trace_{i}"] = color
+                with col2:
+                    line_width = st.slider(
+                        "Line Width", 
+                        1, 5, 2, 
+                        key=f"line_width_trace_{i}",
+                        help="Set the width of the trace line."
+                    )
+                with col3:
+                    line_style = st.selectbox(
+                        "Line Style",
+                        options=["Solid", "Dashed", "Dashdot", "Dotted"],
+                        index=0,
+                        key=f"line_style_trace_{i}",
+                        help="Select the line style for the trace."
+                    )
+                with col4:
+                    plot_every = st.slider(
+                        "Plot Every N Fractions", 
+                        1, 10, 1, 
+                        key=f"plot_every_trace_{i}",
+                        help="Choose how often to annotate fractions (every Nth fraction)."
+                    )
                 trace_params.append({
                     "file_key": file_key,
                     "df": df,
@@ -417,6 +461,7 @@ if data_dict:
                     "y_scale": y_scale,
                     "color": color,
                     "line_width": line_width,
+                    "line_style": line_style,
                     "plot_every": plot_every,
                     "sample_name": sample_name,
                 })
@@ -449,6 +494,7 @@ if data_dict:
                     move_fraction_text,
                     params["color"],
                     params["line_width"],
+                    params["line_style"],
                     show_legend,
                     show_grid
                 )
@@ -475,6 +521,7 @@ if data_dict:
                         move_fraction_text,
                         params["color"],
                         params["line_width"],
+                        params["line_style"],
                         show_legend,
                         show_grid
                     )
@@ -507,6 +554,7 @@ if data_dict:
                         move_fraction_text,
                         params["color"],
                         params["line_width"],
+                        params["line_style"],
                         show_legend,
                         show_grid
                     )
@@ -538,6 +586,7 @@ if data_dict:
                             move_fraction_text,
                             params["color"],
                             params["line_width"],
+                            params["line_style"],
                             show_legend,
                             show_grid
                         )
